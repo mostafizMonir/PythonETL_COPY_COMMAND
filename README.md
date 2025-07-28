@@ -1,0 +1,1 @@
+docker-compose run --rm --build -e TRANSFER_MODE=full postgres-data-transfer

@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  postgres-data-transfer:
+    volumes:
+      # Mount source code for development
+      - ./data_transfer.py:/app/data_transfer.py
+    # Override command for development/testing
+    command: python data_transfer.py
