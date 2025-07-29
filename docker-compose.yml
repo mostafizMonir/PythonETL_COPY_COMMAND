@@ -28,6 +28,9 @@ services:
       TRANSFER_MODE: ${TRANSFER_MODE:-daily}
       VERIFY_TRANSFER: ${VERIFY_TRANSFER:-true}
       
+      # SSL Configuration for AWS RDS
+      SSL_MODE: ${SSL_MODE:-require}
+      
       # Timezone
       TZ: ${TZ:-UTC}
     volumes:

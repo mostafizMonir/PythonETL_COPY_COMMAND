@@ -8,6 +8,7 @@ from typing import Optional, Tuple
 import sys
 from contextlib import contextmanager
 import gc
+import ssl
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +32,9 @@ class PostgreSQLDataTransfer:
             'password': os.getenv('SOURCE_PASSWORD', 'your_password')
         }
         
+        # Add SSL configuration for AWS RDS
+        self._add_ssl_config(self.source_config)
+        
         # Destination Database Configuration
         self.dest_config = {
             'host': os.getenv('DEST_HOST', 'warehouse-rds-endpoint.amazonaws.com'),
@@ -40,30 +44,109 @@ class PostgreSQLDataTransfer:
             'password': os.getenv('DEST_PASSWORD', 'warehouse_password')
         }
         
+        # Add SSL configuration for AWS RDS
+        self._add_ssl_config(self.dest_config)
+        
         # Transfer Configuration
         self.batch_size = int(os.getenv('BATCH_SIZE', '10000'))  # Process 10k rows at a time
         self.table_name = os.getenv('TABLE_NAME', 'your_table_name')
         self.warehouse_table = os.getenv('WAREHOUSE_TABLE', 'your_warehouse_table')
         self.source_db_schema = os.getenv('SOURCE_DB_SCHEMA', 'public')
         self.dest_db_schema = os.getenv('DEST_DB_SCHEMA', 'my')
+    
+    def _add_ssl_config(self, config: dict):
+        """Add SSL configuration for AWS RDS connections"""
+        # Check if the host is an AWS RDS endpoint
+        if 'rds.amazonaws.com' in config['host'] or 'amazonaws.com' in config['host']:
+            logger.info(f"Adding SSL configuration for AWS RDS host: {config['host']}")
+            
+            # Try different SSL modes for AWS RDS
+            ssl_mode = os.getenv('SSL_MODE', 'require').lower()
+            
+            config.update({
+                'sslmode': ssl_mode,  # 'require', 'verify-ca', 'verify-full', 'prefer'
+                'sslcert': None,
+                'sslkey': None,
+                'sslrootcert': None,
+                'sslcrl': None,
+                'sslcompression': False,
+                'connect_timeout': 60,  # Increase connection timeout for AWS RDS
+                'keepalives_idle': 600,  # Keep connection alive
+                'keepalives_interval': 10,
+                'keepalives_count': 6,
+                'application_name': 'postgres-data-transfer'  # Add application name for monitoring
+            })
+            
+            # Add additional SSL parameters for better compatibility
+            if ssl_mode in ['verify-ca', 'verify-full']:
+                # For strict SSL verification, you might need to provide certificates
+                # This is optional and depends on your RDS configuration
+                pass
+                
+        else:
+            logger.info(f"Using standard connection for host: {config['host']}")
+            config.update({
+                'connect_timeout': 30,
+                'keepalives_idle': 600,
+                'keepalives_interval': 10,
+                'keepalives_count': 6,
+                'application_name': 'postgres-data-transfer'
+            })
         
     @contextmanager
     def get_connection(self, config: dict, autocommit: bool = False):
-        """Context manager for database connections"""
+        """Context manager for database connections with enhanced error handling"""
         conn = None
+        max_retries = 3
+        retry_delay = 5
+        
         try:
-            conn = psycopg2.connect(**config)
-            if autocommit:
-                conn.autocommit = True
-            yield conn
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            logger.error(f"Database connection error: {e}")
-            raise
+            for attempt in range(max_retries):
+                try:
+                    logger.info(f"Attempting to connect to {config['host']}:{config['port']} (attempt {attempt + 1}/{max_retries})")
+                    conn = psycopg2.connect(**config)
+                    if autocommit:
+                        conn.autocommit = True
+                    
+                    # Test the connection
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT 1")
+                        cursor.fetchone()
+                    
+                    logger.info(f"Successfully connected to {config['host']}")
+                    yield conn
+                    break
+                    
+                except psycopg2.OperationalError as e:
+                    if conn:
+                        conn.close()
+                        conn = None
+                    
+                    if "SSL connection has been closed unexpectedly" in str(e):
+                        logger.error(f"SSL connection error (attempt {attempt + 1}/{max_retries}): {e}")
+                        if attempt < max_retries - 1:
+                            logger.info(f"Retrying in {retry_delay} seconds...")
+                            time.sleep(retry_delay)
+                            retry_delay *= 2  # Exponential backoff
+                        else:
+                            logger.error("Max retries reached. SSL connection failed.")
+                            raise
+                    else:
+                        logger.error(f"Database connection error: {e}")
+                        raise
+                        
+                except Exception as e:
+                    if conn:
+                        conn.close()
+                        conn = None
+                    logger.error(f"Database connection error: {e}")
+                    raise
         finally:
             if conn:
-                conn.close()
+                try:
+                    conn.close()
+                except Exception as e:
+                    logger.warning(f"Error closing connection: {e}")
 
     def get_total_rows(self, date_filter: Optional[str] = None) -> int:
         """Get total number of rows to transfer"""
