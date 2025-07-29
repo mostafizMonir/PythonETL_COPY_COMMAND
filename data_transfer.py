@@ -100,47 +100,53 @@ class PostgreSQLDataTransfer:
         max_retries = 3
         retry_delay = 5
         
-        try:
-            for attempt in range(max_retries):
-                try:
-                    logger.info(f"Attempting to connect to {config['host']}:{config['port']} (attempt {attempt + 1}/{max_retries})")
-                    conn = psycopg2.connect(**config)
-                    if autocommit:
-                        conn.autocommit = True
-                    
-                    # Test the connection
-                    with conn.cursor() as cursor:
-                        cursor.execute("SELECT 1")
-                        cursor.fetchone()
-                    
-                    logger.info(f"Successfully connected to {config['host']}")
-                    yield conn
-                    break
-                    
-                except psycopg2.OperationalError as e:
-                    if conn:
-                        conn.close()
-                        conn = None
-                    
-                    if "SSL connection has been closed unexpectedly" in str(e):
-                        logger.error(f"SSL connection error (attempt {attempt + 1}/{max_retries}): {e}")
-                        if attempt < max_retries - 1:
-                            logger.info(f"Retrying in {retry_delay} seconds...")
-                            time.sleep(retry_delay)
-                            retry_delay *= 2  # Exponential backoff
-                        else:
-                            logger.error("Max retries reached. SSL connection failed.")
-                            raise
+        # Try to establish connection with retries
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting to connect to {config['host']}:{config['port']} (attempt {attempt + 1}/{max_retries})")
+                conn = psycopg2.connect(**config)
+                if autocommit:
+                    conn.autocommit = True
+                
+                # Test the connection
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    cursor.fetchone()
+                
+                logger.info(f"Successfully connected to {config['host']}")
+                break  # Connection successful, exit retry loop
+                
+            except psycopg2.OperationalError as e:
+                if conn:
+                    conn.close()
+                    conn = None
+                
+                if "SSL connection has been closed unexpectedly" in str(e):
+                    logger.error(f"SSL connection error (attempt {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 2  # Exponential backoff
                     else:
-                        logger.error(f"Database connection error: {e}")
+                        logger.error("Max retries reached. SSL connection failed.")
                         raise
-                        
-                except Exception as e:
-                    if conn:
-                        conn.close()
-                        conn = None
+                else:
                     logger.error(f"Database connection error: {e}")
                     raise
+                    
+            except Exception as e:
+                if conn:
+                    conn.close()
+                    conn = None
+                logger.error(f"Database connection error: {e}")
+                raise
+        
+        # If we get here, we have a successful connection
+        if conn is None:
+            raise Exception("Failed to establish database connection after all retries")
+        
+        try:
+            yield conn
         finally:
             if conn:
                 try:
