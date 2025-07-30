@@ -1,5 +1,7 @@
 # PostgreSQL Data Transfer Tool
 
+run this to view in console :  docker-compose run --rm --build -e TRANSFER_MODE=full postgres-data-transfer
+
 A robust Python-based ETL tool for transferring data between PostgreSQL databases, with special optimizations for AWS RDS connections.
 
 ## Features
@@ -178,3 +180,6 @@ For issues with AWS RDS SSL connections:
 3. Verify network connectivity and security groups
 4. Try different SSL modes
 5. Check AWS RDS console for connection logs
+
+
+finally run this :  docker-compose run --rm --build -e TRANSFER_MODE=full postgres-data-transfer

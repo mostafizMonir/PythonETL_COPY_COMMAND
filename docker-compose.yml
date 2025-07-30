@@ -1,6 +1,50 @@
 version: '3.8'
 
 services:
+  # FastAPI Backend Service
+  data-transfer-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: data_transfer_api
+    ports:
+      - "8000:8000"
+    environment:
+      # Source Database Configuration
+      SOURCE_HOST: ${SOURCE_HOST}
+      SOURCE_PORT: ${SOURCE_PORT:-5432}
+      SOURCE_DB: ${SOURCE_DB}
+      SOURCE_USER: ${SOURCE_USER}
+      SOURCE_PASSWORD: ${SOURCE_PASSWORD}
+      
+      # Destination Database Configuration
+      DEST_HOST: ${DEST_HOST}
+      DEST_PORT: ${DEST_PORT:-5432}
+      DEST_DB: ${DEST_DB}
+      DEST_USER: ${DEST_USER}
+      DEST_PASSWORD: ${DEST_PASSWORD}
+      
+      # Transfer Configuration
+      TABLE_NAME: ${TABLE_NAME}
+      WAREHOUSE_TABLE: ${WAREHOUSE_TABLE}
+      BATCH_SIZE: ${BATCH_SIZE:-10000}
+      TRANSFER_MODE: ${TRANSFER_MODE:-daily}
+      VERIFY_TRANSFER: ${VERIFY_TRANSFER:-true}
+      
+      # SSL Configuration for AWS RDS
+      SSL_MODE: ${SSL_MODE:-require}
+      
+      # Timezone
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    networks:
+      - postgres-transfer-network
+    restart: unless-stopped
+    depends_on: []
+
+  # Original CLI Data Transfer Service (optional)
   postgres-data-transfer:
     build:
       context: .
@@ -39,6 +83,8 @@ services:
     networks:
       - postgres-transfer-network
     restart: unless-stopped
+    profiles:
+      - cli
 
 
 networks:

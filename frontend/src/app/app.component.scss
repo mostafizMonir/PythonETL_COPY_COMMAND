@@ -1,0 +1,254 @@
+.app-container {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  
+  .toolbar-title {
+    margin-left: 16px;
+    font-weight: 500;
+  }
+  
+  .spacer {
+    flex: 1 1 auto;
+  }
+  
+  .status-running {
+    color: #4caf50;
+    animation: pulse 2s infinite;
+  }
+  
+  .status-idle {
+    color: #757575;
+  }
+  
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+}
+
+.main-content {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
+}
+
+.status-card {
+  margin-bottom: 24px;
+  
+  .status-info {
+    .status-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+      
+      .status-label {
+        min-width: 120px;
+        font-weight: 500;
+        color: #666;
+      }
+      
+      .progress-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        
+        mat-progress-bar {
+          width: 100%;
+        }
+        
+        .progress-text {
+          font-size: 14px;
+          color: #666;
+        }
+      }
+      
+      .error-message {
+        color: #f44336;
+        font-weight: 500;
+      }
+    }
+  }
+  
+  .logs-section {
+    margin-top: 24px;
+    
+    h4 {
+      margin: 0 0 16px 0;
+      color: #333;
+    }
+    
+    .logs-container {
+      background-color: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      
+      .log-entry {
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        margin-bottom: 4px;
+        color: #495057;
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+  }
+}
+
+.config-card {
+  .config-section {
+    margin-bottom: 16px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    .form-group {
+      padding: 16px 0;
+      
+      .form-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 16px;
+        align-items: flex-start;
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+        
+        @media (max-width: 768px) {
+          flex-direction: column;
+          gap: 0;
+        }
+        
+        .full-width {
+          flex: 1;
+        }
+        
+        .half-width {
+          flex: 1;
+          
+          @media (max-width: 768px) {
+            flex: none;
+            width: 100%;
+          }
+        }
+        
+        mat-checkbox {
+          margin-top: 8px;
+        }
+      }
+    }
+  }
+  
+  .card-actions {
+    padding: 16px 24px 24px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+      
+      button {
+        width: 100%;
+      }
+    }
+    
+    button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+    }
+  }
+}
+
+// Global form field styles
+mat-form-field {
+  width: 100%;
+  
+  &.full-width {
+    width: 100%;
+  }
+  
+  &.half-width {
+    width: 100%;
+  }
+}
+
+// Status chip colors
+mat-chip {
+  &[color="primary"] {
+    background-color: #2196f3 !important;
+    color: white !important;
+  }
+  
+  &[color="accent"] {
+    background-color: #4caf50 !important;
+    color: white !important;
+  }
+  
+  &[color="warn"] {
+    background-color: #f44336 !important;
+    color: white !important;
+  }
+}
+
+// Snackbar styles
+.snackbar-success {
+  background-color: #4caf50 !important;
+  color: white !important;
+}
+
+.snackbar-error {
+  background-color: #f44336 !important;
+  color: white !important;
+}
+
+.snackbar-warning {
+  background-color: #ff9800 !important;
+  color: white !important;
+}
+
+.snackbar-info {
+  background-color: #2196f3 !important;
+  color: white !important;
+}
+
+// Responsive design improvements
+@media (max-width: 1024px) {
+  .main-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    mat-toolbar {
+      .toolbar-title {
+        font-size: 18px;
+      }
+    }
+  }
+  
+  .status-card, .config-card {
+    margin: 0 -8px 16px -8px;
+  }
+} 

@@ -1,0 +1,318 @@
+<div class="app-container">
+  <mat-toolbar color="primary">
+    <mat-icon>storage</mat-icon>
+    <span class="toolbar-title">{{ title }}</span>
+    <span class="spacer"></span>
+    <mat-icon 
+      [class.status-running]="isTransferRunning"
+      [class.status-idle]="!isTransferRunning">
+      {{ getStatusIcon() }}
+    </mat-icon>
+  </mat-toolbar>
+
+  <div class="main-content">
+    <!-- Transfer Status Card -->
+    <mat-card class="status-card" *ngIf="transferStatus">
+      <mat-card-header>
+        <mat-card-title>Transfer Status</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="status-info">
+          <div class="status-row">
+            <span class="status-label">Status:</span>
+            <mat-chip [color]="getProgressBarColor()" selected>
+              {{ transferStatus.status | titlecase }}
+            </mat-chip>
+          </div>
+          
+          <div class="status-row" *ngIf="transferStatus.total_rows > 0">
+            <span class="status-label">Progress:</span>
+            <div class="progress-info">
+              <mat-progress-bar 
+                mode="determinate" 
+                [value]="transferStatus.progress_percentage"
+                [color]="getProgressBarColor()">
+              </mat-progress-bar>
+              <span class="progress-text">
+                {{ transferStatus.transferred_rows | number }} / {{ transferStatus.total_rows | number }} 
+                ({{ transferStatus.progress_percentage }}%)
+              </span>
+            </div>
+          </div>
+
+          <div class="status-row" *ngIf="transferStatus.start_time">
+            <span class="status-label">Started:</span>
+            <span>{{ transferStatus.start_time | date:'medium' }}</span>
+          </div>
+
+          <div class="status-row" *ngIf="transferStatus.error_message">
+            <span class="status-label">Error:</span>
+            <span class="error-message">{{ transferStatus.error_message }}</span>
+          </div>
+        </div>
+
+        <!-- Recent Logs -->
+        <div class="logs-section" *ngIf="transferStatus.logs && transferStatus.logs.length > 0">
+          <h4>Recent Logs</h4>
+          <div class="logs-container">
+            <div class="log-entry" *ngFor="let log of transferStatus.logs">
+              {{ log }}
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Configuration Form -->
+    <mat-card class="config-card">
+      <mat-card-header>
+        <mat-card-title>Transfer Configuration</mat-card-title>
+        <mat-card-subtitle>Configure your PostgreSQL data transfer settings</mat-card-subtitle>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <form [formGroup]="transferForm" (ngSubmit)="onStartTransfer()">
+          
+          <!-- Source Database Configuration -->
+          <mat-expansion-panel class="config-section">
+            <mat-expansion-panel-header>
+              <mat-panel-title>Source Database</mat-panel-title>
+              <mat-panel-description>Configure source PostgreSQL database</mat-panel-description>
+            </mat-expansion-panel-header>
+            
+            <div formGroupName="sourceDb" class="form-group">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Host</mat-label>
+                  <input matInput formControlName="host" placeholder="source-rds-endpoint.amazonaws.com">
+                  <mat-error *ngIf="isFieldInvalid('sourceDb.host')">
+                    {{ getFieldError('sourceDb.host') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Port</mat-label>
+                  <input matInput type="number" formControlName="port" placeholder="5432">
+                  <mat-error *ngIf="isFieldInvalid('sourceDb.port')">
+                    {{ getFieldError('sourceDb.port') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Database</mat-label>
+                  <input matInput formControlName="database" placeholder="source_database">
+                  <mat-error *ngIf="isFieldInvalid('sourceDb.database')">
+                    {{ getFieldError('sourceDb.database') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Username</mat-label>
+                  <input matInput formControlName="user" placeholder="username">
+                  <mat-error *ngIf="isFieldInvalid('sourceDb.user')">
+                    {{ getFieldError('sourceDb.user') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Password</mat-label>
+                  <input matInput type="password" formControlName="password" placeholder="password">
+                  <mat-error *ngIf="isFieldInvalid('sourceDb.password')">
+                    {{ getFieldError('sourceDb.password') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+            </div>
+          </mat-expansion-panel>
+
+          <!-- Destination Database Configuration -->
+          <mat-expansion-panel class="config-section">
+            <mat-expansion-panel-header>
+              <mat-panel-title>Destination Database</mat-panel-title>
+              <mat-panel-description>Configure warehouse PostgreSQL database</mat-panel-description>
+            </mat-expansion-panel-header>
+            
+            <div formGroupName="destDb" class="form-group">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Host</mat-label>
+                  <input matInput formControlName="host" placeholder="warehouse-rds-endpoint.amazonaws.com">
+                  <mat-error *ngIf="isFieldInvalid('destDb.host')">
+                    {{ getFieldError('destDb.host') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Port</mat-label>
+                  <input matInput type="number" formControlName="port" placeholder="5432">
+                  <mat-error *ngIf="isFieldInvalid('destDb.port')">
+                    {{ getFieldError('destDb.port') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Database</mat-label>
+                  <input matInput formControlName="database" placeholder="warehouse_database">
+                  <mat-error *ngIf="isFieldInvalid('destDb.database')">
+                    {{ getFieldError('destDb.database') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Username</mat-label>
+                  <input matInput formControlName="user" placeholder="warehouse_username">
+                  <mat-error *ngIf="isFieldInvalid('destDb.user')">
+                    {{ getFieldError('destDb.user') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Password</mat-label>
+                  <input matInput type="password" formControlName="password" placeholder="warehouse_password">
+                  <mat-error *ngIf="isFieldInvalid('destDb.password')">
+                    {{ getFieldError('destDb.password') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+            </div>
+          </mat-expansion-panel>
+
+          <!-- Transfer Configuration -->
+          <mat-expansion-panel class="config-section" [expanded]="true">
+            <mat-expansion-panel-header>
+              <mat-panel-title>Transfer Settings</mat-panel-title>
+              <mat-panel-description>Configure transfer parameters</mat-panel-description>
+            </mat-expansion-panel-header>
+            
+            <div formGroupName="transferConfig" class="form-group">
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Source Table</mat-label>
+                  <input matInput formControlName="table_name" placeholder="event_plan_member">
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.table_name')">
+                    {{ getFieldError('transferConfig.table_name') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Destination Table</mat-label>
+                  <input matInput formControlName="warehouse_table" placeholder="event_plan_member">
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.warehouse_table')">
+                    {{ getFieldError('transferConfig.warehouse_table') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Source Schema</mat-label>
+                  <input matInput formControlName="source_db_schema" placeholder="public">
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.source_db_schema')">
+                    {{ getFieldError('transferConfig.source_db_schema') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Destination Schema</mat-label>
+                  <input matInput formControlName="dest_db_schema" placeholder="my">
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.dest_db_schema')">
+                    {{ getFieldError('transferConfig.dest_db_schema') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Batch Size</mat-label>
+                  <input matInput type="number" formControlName="batch_size" placeholder="10000">
+                  <mat-hint>Number of rows to process at once</mat-hint>
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.batch_size')">
+                    {{ getFieldError('transferConfig.batch_size') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>SSL Mode</mat-label>
+                  <mat-select formControlName="ssl_mode">
+                    <mat-option *ngFor="let mode of sslModes" [value]="mode.value">
+                      {{ mode.label }}
+                    </mat-option>
+                  </mat-select>
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.ssl_mode')">
+                    {{ getFieldError('transferConfig.ssl_mode') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="half-width">
+                  <mat-label>Transfer Mode</mat-label>
+                  <mat-select formControlName="transfer_mode" (selectionChange)="onTransferModeChange()">
+                    <mat-option *ngFor="let mode of transferModes" [value]="mode.value">
+                      {{ mode.label }}
+                    </mat-option>
+                  </mat-select>
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.transfer_mode')">
+                    {{ getFieldError('transferConfig.transfer_mode') }}
+                  </mat-error>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="half-width" 
+                  *ngIf="transferForm.get('transferConfig.transfer_mode')?.value === 'custom'">
+                  <mat-label>Date Filter</mat-label>
+                  <input matInput formControlName="date_filter" 
+                    placeholder="created_at >= '2024-01-01'">
+                  <mat-hint>SQL WHERE condition for date filtering</mat-hint>
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.date_filter')">
+                    {{ getFieldError('transferConfig.date_filter') }}
+                  </mat-error>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-checkbox formControlName="verify_transfer">
+                  Verify transfer after completion
+                </mat-checkbox>
+              </div>
+            </div>
+          </mat-expansion-panel>
+        </form>
+      </mat-card-content>
+
+      <mat-card-actions class="card-actions">
+        <button mat-raised-button 
+                color="primary" 
+                type="button"
+                [disabled]="transferForm.invalid || isTransferRunning"
+                (click)="onStartTransfer()">
+          <mat-icon>play_arrow</mat-icon>
+          Start Transfer
+        </button>
+        
+        <button mat-raised-button 
+                color="warn" 
+                type="button"
+                [disabled]="!isTransferRunning"
+                (click)="onStopTransfer()">
+          <mat-icon>stop</mat-icon>
+          Stop Transfer
+        </button>
+        
+        <button mat-button 
+                type="button"
+                (click)="loadTransferStatus()">
+          <mat-icon>refresh</mat-icon>
+          Refresh Status
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div> 

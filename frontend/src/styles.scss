@@ -1,0 +1,220 @@
+/* You can add global styles to this file, and also import other style files */
+
+@use '@angular/material' as mat;
+
+
+
+// Include the common styles for Angular Material. We include this here so that you only
+// have to load a single css file for Angular Material in your app.
+@include mat.core();
+
+// Define the palettes for your theme using the Material Design palettes available in palette.scss
+$primary: mat.define-palette(mat.$indigo-palette);
+$accent: mat.define-palette(mat.$pink-palette, A200, A100, A400);
+$warn: mat.define-palette(mat.$red-palette);
+
+// Create the theme object. A theme consists of configurations for individual
+// theming systems such as "color" or "typography".
+$theme: mat.define-light-theme((
+  color: (
+    primary: $primary,
+    accent: $accent,
+    warn: $warn,
+  )
+));
+
+// Include theme styles for core and each component used in your app.
+@include mat.all-component-themes($theme);
+
+/* Global Styles */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  background-color: #fafafa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+// Custom scrollbar styles
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+// Material Design overrides
+.mat-expansion-panel {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24) !important;
+  
+  &:not(.mat-expanded) {
+    .mat-expansion-panel-header:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+  }
+}
+
+.mat-card {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+.mat-toolbar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+// Form field customizations
+.mat-form-field {
+  .mat-form-field-infix {
+    padding: 0.75em 0;
+  }
+}
+
+// Button customizations
+.mat-raised-button {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  
+  &[color="primary"] {
+    background-color: #1976d2;
+    
+    &:hover {
+      background-color: #1565c0;
+    }
+    
+    &:disabled {
+      background-color: rgba(0, 0, 0, 0.12);
+      color: rgba(0, 0, 0, 0.26);
+    }
+  }
+  
+  &[color="warn"] {
+    background-color: #d32f2f;
+    
+    &:hover {
+      background-color: #c62828;
+    }
+  }
+}
+
+// Progress bar customizations
+.mat-progress-bar {
+  border-radius: 4px;
+  
+  .mat-progress-bar-buffer {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+}
+
+// Snackbar customizations
+.mat-snack-bar-container {
+  border-radius: 4px;
+  min-width: 300px;
+}
+
+// Responsive utilities
+.d-none {
+  display: none !important;
+}
+
+.d-block {
+  display: block !important;
+}
+
+.d-flex {
+  display: flex !important;
+}
+
+.flex-column {
+  flex-direction: column !important;
+}
+
+.justify-content-center {
+  justify-content: center !important;
+}
+
+.align-items-center {
+  align-items: center !important;
+}
+
+.text-center {
+  text-align: center !important;
+}
+
+.mb-0 {
+  margin-bottom: 0 !important;
+}
+
+.mb-1 {
+  margin-bottom: 8px !important;
+}
+
+.mb-2 {
+  margin-bottom: 16px !important;
+}
+
+.mb-3 {
+  margin-bottom: 24px !important;
+}
+
+.mt-0 {
+  margin-top: 0 !important;
+}
+
+.mt-1 {
+  margin-top: 8px !important;
+}
+
+.mt-2 {
+  margin-top: 16px !important;
+}
+
+.mt-3 {
+  margin-top: 24px !important;
+}
+
+// Responsive breakpoints
+@media (max-width: 599px) {
+  .d-xs-none {
+    display: none !important;
+  }
+  
+  .d-xs-block {
+    display: block !important;
+  }
+}
+
+@media (min-width: 600px) and (max-width: 959px) {
+  .d-sm-none {
+    display: none !important;
+  }
+  
+  .d-sm-block {
+    display: block !important;
+  }
+}
+
+@media (min-width: 960px) {
+  .d-md-none {
+    display: none !important;
+  }
+  
+  .d-md-block {
+    display: block !important;
+  }
+}

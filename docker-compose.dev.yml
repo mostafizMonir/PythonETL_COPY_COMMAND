@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # FastAPI Backend Service for Development
+  data-transfer-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: data_transfer_api_dev
+    ports:
+      - "8000:8000"
+    environment:
+      # You can override these with a .env file or set them here
+      SOURCE_HOST: ${SOURCE_HOST:-localhost}
+      SOURCE_PORT: ${SOURCE_PORT:-5432}
+      SOURCE_DB: ${SOURCE_DB:-source_db}
+      SOURCE_USER: ${SOURCE_USER:-postgres}
+      SOURCE_PASSWORD: ${SOURCE_PASSWORD:-password}
+      
+      DEST_HOST: ${DEST_HOST:-localhost}
+      DEST_PORT: ${DEST_PORT:-5432}
+      DEST_DB: ${DEST_DB:-warehouse_db}
+      DEST_USER: ${DEST_USER:-postgres}
+      DEST_PASSWORD: ${DEST_PASSWORD:-password}
+      
+      TABLE_NAME: ${TABLE_NAME:-event_plan_member}
+      WAREHOUSE_TABLE: ${WAREHOUSE_TABLE:-event_plan_member}
+      SOURCE_DB_SCHEMA: ${SOURCE_DB_SCHEMA:-public}
+      DEST_DB_SCHEMA: ${DEST_DB_SCHEMA:-my}
+      BATCH_SIZE: ${BATCH_SIZE:-10000}
+      TRANSFER_MODE: ${TRANSFER_MODE:-full}
+      VERIFY_TRANSFER: ${VERIFY_TRANSFER:-true}
+      SSL_MODE: ${SSL_MODE:-require}
+      
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+      # Mount source code for development (optional hot reload)
+      - ./main.py:/app/main.py
+      - ./data_transfer.py:/app/data_transfer.py
+    networks:
+      - postgres-transfer-network
+    restart: unless-stopped
+
+networks:
+  postgres-transfer-network:
+    driver: bridge 
