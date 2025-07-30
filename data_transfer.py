@@ -199,7 +199,7 @@ class PostgreSQLDataTransfer:
             logger.error(f"Error during schema/table creation: {e}")
             raise
 
-    def transfer_batch_copy(self, date_filter: Optional[str] = None, mode: str = 'incremental'):
+    def transfer_batch_copy(self, date_filter: Optional[str] = None, mode: str = 'incremental', progress_callback=None):
         """
         Transfer data using COPY command for better performance
         Modes: 'full' - full transfer, 'incremental' - only new/updated records
@@ -304,6 +304,11 @@ class PostgreSQLDataTransfer:
                             dest_conn.commit()
                         
                         transferred_rows += len(batch_data)
+                        
+                        # Update progress via callback if provided
+                        if progress_callback:
+                            progress_callback(transferred_rows, batch_number)
+                        
                         batch_time = time.time() - batch_start_time
                         
                         logger.info(
@@ -334,7 +339,7 @@ class PostgreSQLDataTransfer:
             logger.error(f"Transfer failed: {e}")
             return False
 
-    def transfer_pandas_chunks(self, date_filter: Optional[str] = None):
+    def transfer_pandas_chunks(self, date_filter: Optional[str] = None, progress_callback=None):
         """Alternative method using pandas for complex transformations"""
         start_time = time.time()
         
@@ -367,6 +372,11 @@ class PostgreSQLDataTransfer:
                 )
                 
                 transferred_rows += len(chunk)
+                
+                # Update progress via callback if provided
+                if progress_callback:
+                    progress_callback(transferred_rows, chunk_number)
+                
                 chunk_time = time.time() - chunk_start_time
                 
                 logger.info(
@@ -396,18 +406,18 @@ class PostgreSQLDataTransfer:
             logger.error(f"Pandas transfer failed: {e}")
             return False
 
-    def daily_incremental_transfer(self):
+    def daily_incremental_transfer(self, progress_callback=None):
         """Transfer only yesterday's data"""
         yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         date_filter = f"DATE(created_at) = '{yesterday}'"  # Adjust column name as needed
         
         logger.info(f"Starting daily incremental transfer for {yesterday}")
-        return self.transfer_batch_copy(date_filter, mode='incremental')
+        return self.transfer_batch_copy(date_filter, mode='incremental', progress_callback=progress_callback)
 
-    def full_transfer(self):
+    def full_transfer(self, progress_callback=None):
         """Transfer all data"""
         logger.info("Starting full data transfer")
-        return self.transfer_batch_copy(mode='full')
+        return self.transfer_batch_copy(progress_callback=progress_callback, mode='full')
 
     def verify_transfer(self, date_filter: Optional[str] = None) -> bool:
         """Verify the transfer by comparing row counts"""
@@ -437,7 +447,7 @@ class PostgreSQLDataTransfer:
             logger.error(f"Verification failed: {e}")
             return False
 
-def main():
+def main(progress_callback=None):
     """Main execution function"""
     transfer = PostgreSQLDataTransfer()
     transfer.create_warehouse_table_if_not_exists(None)
@@ -448,13 +458,13 @@ def main():
     success = False
     
     if mode == 'daily':
-        success = transfer.daily_incremental_transfer()
+        success = transfer.daily_incremental_transfer(progress_callback=progress_callback)
     elif mode == 'full':
-        success = transfer.full_transfer()
+        success = transfer.full_transfer(progress_callback=progress_callback)
     elif mode == 'custom':
         # Custom date range
         date_filter = "created_at >= '2024-01-01' AND created_at < '2024-02-01'"
-        success = transfer.transfer_batch_copy(date_filter, mode='incremental')
+        success = transfer.transfer_batch_copy(date_filter, mode='incremental', progress_callback=progress_callback)
     
     if success:
         logger.info("Data transfer completed successfully!")

@@ -7,7 +7,7 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from data_transfer import PostgreSQLDataTransfer
 
 # Configure logging
@@ -129,7 +129,8 @@ def run_data_transfer(config: DataTransferRequest):
             "status": "initializing",
             "start_time": datetime.now().isoformat(),
             "error_message": None,
-            "logs": []
+            "logs": [],
+            "transferred_rows": 0  # Reset transferred rows
         })
         
         # Set environment variables
@@ -158,12 +159,33 @@ def run_data_transfer(config: DataTransferRequest):
         success = False
         mode = config.transfer_config.transfer_mode
         
+        # Define a callback function to update progress
+        def update_progress(transferred_count: int, batch_number: int):
+            global transfer_status
+            transfer_status["transferred_rows"] = transferred_count
+            transfer_status["current_batch"] = batch_number
+            logger.info(f" progress {transferred_count} :   ...")
+            # Log progress update
+            progress_percentage = (transferred_count / total_rows * 100) if total_rows > 0 else 0
+            transfer_status["logs"].append(f"{datetime.now().isoformat()}: Progress - {transferred_count:,}/{total_rows:,} rows ({progress_percentage:.1f}%) - Batch {batch_number}")
+            logger.info(f" progress percentage{progress_percentage} : ...")
+            # Calculate estimated completion time
+            if transferred_count > 0 and transfer_status["start_time"]:
+                elapsed_time = (datetime.now() - datetime.fromisoformat(transfer_status["start_time"])).total_seconds()
+                if elapsed_time > 0:
+                    rows_per_second = transferred_count / elapsed_time
+                    remaining_rows = total_rows - transferred_count
+                    if rows_per_second > 0:
+                        remaining_seconds = remaining_rows / rows_per_second
+                        estimated_completion = datetime.now() + timedelta(seconds=remaining_seconds)
+                        transfer_status["estimated_completion"] = estimated_completion.isoformat()
+        
         if mode == 'daily':
-            success = transfer.daily_incremental_transfer()
+            success = transfer.daily_incremental_transfer(progress_callback=update_progress)
         elif mode == 'full':
-            success = transfer.full_transfer()
+            success = transfer.full_transfer(progress_callback=update_progress)
         elif mode == 'custom':
-            success = transfer.transfer_batch_copy(date_filter, mode='incremental')
+            success = transfer.transfer_batch_copy(date_filter, mode='incremental', progress_callback=update_progress)
         
         if success:
             transfer_status["status"] = "verifying" if config.transfer_config.verify_transfer else "completed"
@@ -236,8 +258,10 @@ async def get_transfer_status():
     global transfer_status
     
     progress_percentage = 0
-    if transfer_status["total_rows"] > 0:
+    if transfer_status["total_rows"] > 0 and transfer_status["transferred_rows"] >= 0:
         progress_percentage = (transfer_status["transferred_rows"] / transfer_status["total_rows"]) * 100
+        # Ensure progress doesn't exceed 100%
+        progress_percentage = min(progress_percentage, 100.0)
     
     return StatusResponse(
         is_running=transfer_status["is_running"],
