@@ -63,26 +63,26 @@ export class AppComponent implements OnInit, OnDestroy {
     this.transferForm = this.fb.group({
       // Source Database Configuration
       sourceDb: this.fb.group({
-        host: ['source-rds-endpoint.amazonaws.com', [Validators.required]],
-        port: [5432, [Validators.required, Validators.min(1), Validators.max(65535)]],
-        database: ['source_database', [Validators.required]],
-        user: ['your_username', [Validators.required]],
-        password: ['your_password', [Validators.required]]
+        host: ['202.4.127.189', [Validators.required]],
+        port: [5634, [Validators.required, Validators.min(1), Validators.max(65535)]],
+        database: ['warehouse_brac_mne_data', [Validators.required]],
+        user: ['postgres', [Validators.required]],
+        password: ['9ENag2FO9guhTaL', [Validators.required]]
       }),
       
       // Destination Database Configuration
       destDb: this.fb.group({
-        host: ['warehouse-rds-endpoint.amazonaws.com', [Validators.required]],
-        port: [5432, [Validators.required, Validators.min(1), Validators.max(65535)]],
-        database: ['warehouse_database', [Validators.required]],
-        user: ['warehouse_username', [Validators.required]],
-        password: ['warehouse_password', [Validators.required]]
+        host: ['202.4.127.189', [Validators.required]],
+        port: [5634, [Validators.required, Validators.min(1), Validators.max(65535)]],
+        database: ['warehouse_brac_mne_data', [Validators.required]],
+        user: ['postgres', [Validators.required]],
+        password: ['9ENag2FO9guhTaL', [Validators.required]]
       }),
       
       // Transfer Configuration
       transferConfig: this.fb.group({
-        table_name: ['event_plan_member', [Validators.required]],
-        warehouse_table: ['event_plan_member', [Validators.required]],
+        table_name: ['catchment', [Validators.required]],
+        warehouse_table: ['catchment', [Validators.required]],
         source_db_schema: ['public', [Validators.required]],
         dest_db_schema: ['my', [Validators.required]],
         batch_size: [10000, [Validators.required, Validators.min(100), Validators.max(50000)]],
