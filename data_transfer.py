@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 import time
 import os
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict, Any
 import sys
 from contextlib import contextmanager
 import gc
@@ -164,6 +164,121 @@ class PostgreSQLDataTransfer:
             with conn.cursor() as cursor:
                 cursor.execute(query)
                 return cursor.fetchone()[0]
+
+    def get_schemas(self) -> List[str]:
+        """Get all schemas from the source database"""
+        query = """
+        SELECT DISTINCT schema_name 
+        FROM information_schema.schemata 
+        WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast')
+        ORDER BY schema_name
+        """
+        
+        with self.get_connection(self.source_config) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query)
+                return [row[0] for row in cursor.fetchall()]
+
+    def get_tables_and_views(self, schema_name: str) -> List[Dict[str, Any]]:
+        """Get all tables and views from a specific schema"""
+        query = """
+        SELECT 
+            table_name,
+            table_type,
+            (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = t.table_schema AND table_name = t.table_name) as column_count
+        FROM information_schema.tables t
+        WHERE table_schema = %s
+        ORDER BY table_name
+        """
+        
+        with self.get_connection(self.source_config) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, (schema_name,))
+                results = cursor.fetchall()
+                
+                tables_and_views = []
+                for row in results:
+                    table_name, table_type, column_count = row
+                    
+                    # Get row count for tables (not views)
+                    row_count = None
+                    if table_type == 'BASE TABLE':
+                        try:
+                            count_query = f"SELECT COUNT(*) FROM {schema_name}.{table_name}"
+                            cursor.execute(count_query)
+                            row_count = cursor.fetchone()[0]
+                        except Exception as e:
+                            logger.warning(f"Could not get row count for {schema_name}.{table_name}: {e}")
+                    
+                    tables_and_views.append({
+                        "table_name": table_name,
+                        "table_type": "table" if table_type == "BASE TABLE" else "view",
+                        "row_count": row_count,
+                        "column_count": column_count
+                    })
+                
+                return tables_and_views
+
+    def get_table_info(self, schema_name: str, table_name: str) -> Dict[str, Any]:
+        """Get detailed information about a specific table"""
+        # Get table structure
+        columns_query = """
+        SELECT 
+            column_name,
+            data_type,
+            is_nullable,
+            column_default,
+            character_maximum_length
+        FROM information_schema.columns 
+        WHERE table_schema = %s AND table_name = %s
+        ORDER BY ordinal_position
+        """
+        
+        # Get row count
+        count_query = f"SELECT COUNT(*) FROM {schema_name}.{table_name}"
+        
+        # Get table type
+        type_query = """
+        SELECT table_type 
+        FROM information_schema.tables 
+        WHERE table_schema = %s AND table_name = %s
+        """
+        
+        with self.get_connection(self.source_config) as conn:
+            with conn.cursor() as cursor:
+                # Get columns
+                cursor.execute(columns_query, (schema_name, table_name))
+                columns = []
+                for row in cursor.fetchall():
+                    column_name, data_type, is_nullable, column_default, max_length = row
+                    columns.append({
+                        "name": column_name,
+                        "type": data_type,
+                        "nullable": is_nullable == "YES",
+                        "default": column_default,
+                        "max_length": max_length
+                    })
+                
+                # Get row count
+                try:
+                    cursor.execute(count_query)
+                    row_count = cursor.fetchone()[0]
+                except Exception as e:
+                    logger.warning(f"Could not get row count: {e}")
+                    row_count = None
+                
+                # Get table type
+                cursor.execute(type_query, (schema_name, table_name))
+                table_type_result = cursor.fetchone()
+                table_type = "table" if table_type_result and table_type_result[0] == "BASE TABLE" else "view"
+                
+                return {
+                    "schema_name": schema_name,
+                    "table_name": table_name,
+                    "table_type": table_type,
+                    "row_count": row_count,
+                    "columns": columns
+                }
 
     def create_warehouse_table_if_not_exists(self, source_table_structure: str):
         """Create warehouse schema and table with the same structure as the source."""

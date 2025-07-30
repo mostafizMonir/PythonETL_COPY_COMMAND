@@ -8,7 +8,9 @@ import {
   StatusResponse,
   SourceDatabaseConfig,
   DestinationDatabaseConfig,
-  TransferConfig
+  TransferConfig,
+  SchemaInfo,
+  TableInfo
 } from './models/transfer.models';
 
 @Component({
@@ -23,6 +25,12 @@ export class AppComponent implements OnInit, OnDestroy {
   isTransferRunning = false;
   transferStatus: StatusResponse | null = null;
   statusSubscription?: Subscription;
+  
+  // Schema and table dropdowns
+  availableSchemas: SchemaInfo[] = [];
+  availableTables: TableInfo[] = [];
+  isLoadingSchemas = false;
+  isLoadingTables = false;
   
   transferModes = [
     { value: 'full', label: 'Full Transfer' },
@@ -51,6 +59,14 @@ export class AppComponent implements OnInit, OnDestroy {
     
     // Start polling for status updates
     this.startStatusPolling();
+    
+    // Watch for source database changes to auto-load schemas
+    this.transferForm.get('sourceDb')?.valueChanges.subscribe(() => {
+      if (this.isSourceDbValid() && this.availableSchemas.length === 0) {
+        // Auto-load schemas when source database is configured
+        this.loadSchemas();
+      }
+    });
   }
 
   ngOnDestroy() {
@@ -81,9 +97,9 @@ export class AppComponent implements OnInit, OnDestroy {
       
       // Transfer Configuration
       transferConfig: this.fb.group({
-        table_name: ['catchment', [Validators.required]],
-        warehouse_table: ['catchment', [Validators.required]],
-        source_db_schema: ['public', [Validators.required]],
+        table_name: ['', [Validators.required]],
+        warehouse_table: ['', [Validators.required]],
+        source_db_schema: ['', [Validators.required]],
         dest_db_schema: ['my', [Validators.required]],
         batch_size: [10000, [Validators.required, Validators.min(100), Validators.max(50000)]],
         transfer_mode: ['full', [Validators.required]],
@@ -92,6 +108,82 @@ export class AppComponent implements OnInit, OnDestroy {
         verify_transfer: [true]
       })
     });
+  }
+
+  // Schema and table loading methods
+  isSourceDbValid(): boolean {
+    const sourceDb = this.transferForm.get('sourceDb');
+    return sourceDb ? sourceDb.valid : false;
+  }
+
+  testSourceConnection() {
+    const sourceDb = this.transferForm.get('sourceDb')?.value as SourceDatabaseConfig;
+    
+    this.transferService.healthCheck().subscribe({
+      next: () => {
+        this.showSnackBar('Source database connection successful!', 'success');
+      },
+      error: (error) => {
+        this.showSnackBar('Source database connection failed: ' + error.message, 'error');
+      }
+    });
+  }
+
+  loadSchemas() {
+    const sourceDb = this.transferForm.get('sourceDb')?.value as SourceDatabaseConfig;
+    this.isLoadingSchemas = true;
+    
+    console.log('Loading schemas for database:', sourceDb);
+    
+    this.transferService.getSchemas(sourceDb).subscribe({
+      next: (response) => {
+        console.log('Schemas loaded successfully:', response);
+        this.availableSchemas = response.schemas;
+        this.isLoadingSchemas = false;
+        this.showSnackBar(`Loaded ${response.schemas.length} schemas`, 'success');
+      },
+      error: (error) => {
+        console.error('Error loading schemas:', error);
+        this.isLoadingSchemas = false;
+        this.showSnackBar('Failed to load schemas: ' + error.message, 'error');
+      }
+    });
+  }
+
+  loadTables() {
+    const sourceDb = this.transferForm.get('sourceDb')?.value as SourceDatabaseConfig;
+    const schemaName = this.transferForm.get('transferConfig.source_db_schema')?.value;
+    
+    if (!schemaName) {
+      this.showSnackBar('Please select a schema first', 'warning');
+      return;
+    }
+    
+    this.isLoadingTables = true;
+    
+    this.transferService.getTablesAndViews(sourceDb, schemaName).subscribe({
+      next: (response) => {
+        this.availableTables = response.tables;
+        this.isLoadingTables = false;
+        this.showSnackBar(`Loaded ${response.tables.length} tables/views from schema '${schemaName}'`, 'success');
+      },
+      error: (error) => {
+        this.isLoadingTables = false;
+        this.showSnackBar('Failed to load tables: ' + error.message, 'error');
+      }
+    });
+  }
+
+  onSchemaChange() {
+    // Clear the table selection when schema changes
+    this.transferForm.get('transferConfig.table_name')?.setValue('');
+    this.availableTables = [];
+    
+    // Auto-load tables for the selected schema
+    const schemaName = this.transferForm.get('transferConfig.source_db_schema')?.value;
+    if (schemaName) {
+      this.loadTables();
+    }
   }
 
   loadTransferStatus() {

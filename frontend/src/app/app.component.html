@@ -195,28 +195,43 @@
             <div formGroupName="transferConfig" class="form-group">
               <div class="form-row">
                 <mat-form-field appearance="outline" class="half-width">
-                  <mat-label>Source Table</mat-label>
-                  <input matInput formControlName="table_name" placeholder="event_plan_member">
-                  <mat-error *ngIf="isFieldInvalid('transferConfig.table_name')">
-                    {{ getFieldError('transferConfig.table_name') }}
+                  <mat-label>Source Schema</mat-label>
+                  <mat-select formControlName="source_db_schema" (selectionChange)="onSchemaChange()" placeholder="Click 'Load Schemas' to populate">
+                    <mat-option *ngFor="let schema of availableSchemas" [value]="schema.schema_name">
+                      {{ schema.schema_name }}
+                    </mat-option>
+                    <mat-option *ngIf="availableSchemas.length === 0" disabled>
+                      No schemas loaded. Click 'Load Schemas' button below.
+                    </mat-option>
+                  </mat-select>
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.source_db_schema')">
+                    {{ getFieldError('transferConfig.source_db_schema') }}
                   </mat-error>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" class="half-width">
-                  <mat-label>Destination Table</mat-label>
-                  <input matInput formControlName="warehouse_table" placeholder="event_plan_member">
-                  <mat-error *ngIf="isFieldInvalid('transferConfig.warehouse_table')">
-                    {{ getFieldError('transferConfig.warehouse_table') }}
+                  <mat-label>Source Table</mat-label>
+                  <mat-select formControlName="table_name" [disabled]="!availableTables.length" placeholder="Select schema first, then click 'Load Tables'">
+                    <mat-option *ngFor="let table of availableTables" [value]="table.table_name">
+                      {{ table.table_name }} ({{ table.table_type }})
+                      <span *ngIf="table.row_count !== null"> - {{ table.row_count | number }} rows</span>
+                    </mat-option>
+                    <mat-option *ngIf="availableTables.length === 0" disabled>
+                      No tables loaded. Select a schema and click 'Load Tables' button below.
+                    </mat-option>
+                  </mat-select>
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.table_name')">
+                    {{ getFieldError('transferConfig.table_name') }}
                   </mat-error>
                 </mat-form-field>
               </div>
 
               <div class="form-row">
                 <mat-form-field appearance="outline" class="half-width">
-                  <mat-label>Source Schema</mat-label>
-                  <input matInput formControlName="source_db_schema" placeholder="public">
-                  <mat-error *ngIf="isFieldInvalid('transferConfig.source_db_schema')">
-                    {{ getFieldError('transferConfig.source_db_schema') }}
+                  <mat-label>Destination Table</mat-label>
+                  <input matInput formControlName="warehouse_table" placeholder="warehouse_table_name">
+                  <mat-error *ngIf="isFieldInvalid('transferConfig.warehouse_table')">
+                    {{ getFieldError('transferConfig.warehouse_table') }}
                   </mat-error>
                 </mat-form-field>
 
@@ -281,6 +296,51 @@
                 <mat-checkbox formControlName="verify_transfer">
                   Verify transfer after completion
                 </mat-checkbox>
+              </div>
+
+              <!-- Database Connection Test -->
+              <div class="form-row">
+                <button mat-stroked-button 
+                        type="button"
+                        [disabled]="!isSourceDbValid()"
+                        (click)="testSourceConnection()">
+                  <mat-icon>wifi</mat-icon>
+                  Test Source Connection
+                </button>
+                
+                <button mat-stroked-button 
+                        type="button"
+                        [disabled]="!isSourceDbValid()"
+                        [class.loading]="isLoadingSchemas"
+                        (click)="loadSchemas()">
+                  <mat-icon>{{ isLoadingSchemas ? 'hourglass_empty' : 'refresh' }}</mat-icon>
+                  {{ isLoadingSchemas ? 'Loading...' : 'Load Schemas' }}
+                </button>
+                
+                <button mat-stroked-button 
+                        type="button"
+                        [disabled]="!transferForm.get('transferConfig.source_db_schema')?.value"
+                        [class.loading]="isLoadingTables"
+                        (click)="loadTables()">
+                  <mat-icon>{{ isLoadingTables ? 'hourglass_empty' : 'table_view' }}</mat-icon>
+                  {{ isLoadingTables ? 'Loading...' : 'Load Tables' }}
+                </button>
+              </div>
+
+              <!-- Help Section -->
+              <div class="help-section" *ngIf="availableSchemas.length === 0 || availableTables.length === 0">
+                <mat-card class="help-card">
+                  <mat-card-content>
+                    <h4>How to use the dropdowns:</h4>
+                    <ol>
+                      <li><strong>Configure Source Database:</strong> Fill in the source database details above</li>
+                      <li><strong>Load Schemas:</strong> Click "Load Schemas" to populate the Source Schema dropdown</li>
+                      <li><strong>Select Schema:</strong> Choose a schema from the dropdown (tables will load automatically)</li>
+                      <li><strong>Select Table:</strong> Choose a table from the Source Table dropdown</li>
+                    </ol>
+                    <p><em>Note: Schemas and tables will load automatically once the source database is configured.</em></p>
+                  </mat-card-content>
+                </mat-card>
               </div>
             </div>
           </mat-expansion-panel>

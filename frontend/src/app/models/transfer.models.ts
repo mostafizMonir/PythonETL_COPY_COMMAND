@@ -53,4 +53,40 @@ export interface StatusResponse {
 
 export interface LogResponse {
   logs: string[];
+}
+
+export interface SchemaInfo {
+  schema_name: string;
+  description?: string;
+}
+
+export interface TableInfo {
+  table_name: string;
+  table_type: 'table' | 'view';
+  row_count?: number;
+  column_count?: number;
+}
+
+export interface SchemasResponse {
+  schemas: SchemaInfo[];
+}
+
+export interface TablesResponse {
+  tables: TableInfo[];
+}
+
+export interface TableDetailInfo {
+  schema_name: string;
+  table_name: string;
+  table_type: 'table' | 'view';
+  row_count?: number;
+  columns: ColumnInfo[];
+}
+
+export interface ColumnInfo {
+  name: string;
+  type: string;
+  nullable: boolean;
+  default?: string;
+  max_length?: number;
 } 

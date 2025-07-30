@@ -6,7 +6,11 @@ import {
   DataTransferRequest,
   TransferResponse,
   StatusResponse,
-  LogResponse
+  LogResponse,
+  SourceDatabaseConfig,
+  SchemasResponse,
+  TablesResponse,
+  TableDetailInfo
 } from '../models/transfer.models';
 
 @Injectable({
@@ -53,6 +57,41 @@ export class TransferService {
    */
   getTransferLogs(): Observable<LogResponse> {
     return this.http.get<LogResponse>(`${this.apiUrl}/transfer/logs`)
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
+
+  /**
+   * Get all schemas from the source database
+   */
+  getSchemas(sourceDb: SourceDatabaseConfig): Observable<SchemasResponse> {
+    return this.http.post<SchemasResponse>(`${this.apiUrl}/database/schemas`, sourceDb)
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
+
+  /**
+   * Get all tables and views from a specific schema
+   */
+  getTablesAndViews(sourceDb: SourceDatabaseConfig, schemaName: string): Observable<TablesResponse> {
+    const params = { schema_name: schemaName };
+    return this.http.post<TablesResponse>(`${this.apiUrl}/database/tables`, sourceDb, { params })
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
+
+  /**
+   * Get detailed information about a specific table
+   */
+  getTableInfo(sourceDb: SourceDatabaseConfig, schemaName: string, tableName: string): Observable<TableDetailInfo> {
+    const params = { 
+      schema_name: schemaName,
+      table_name: tableName
+    };
+    return this.http.post<TableDetailInfo>(`${this.apiUrl}/database/table-info`, sourceDb, { params })
       .pipe(
         catchError(this.handleError)
       );

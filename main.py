@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, status
+from fastapi import FastAPI, HTTPException, BackgroundTasks, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import asyncio
 import logging
 import os
@@ -89,6 +89,19 @@ class StatusResponse(BaseModel):
     status: str
     error_message: Optional[str]
     logs: list
+
+class SchemaInfo(BaseModel):
+    schema_name: str
+    description: Optional[str] = None
+
+class TableInfo(BaseModel):
+    table_name: str
+    table_type: str  # 'table' or 'view'
+    row_count: Optional[int] = None
+
+class DatabaseInfoResponse(BaseModel):
+    schemas: List[SchemaInfo]
+    tables: List[TableInfo]
 
 def set_environment_variables(config: DataTransferRequest):
     """Set environment variables from the request configuration"""
@@ -305,6 +318,75 @@ async def get_transfer_logs():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.post("/database/schemas")
+async def get_schemas(source_db: SourceDatabaseConfig):
+    """Get all schemas from the source database"""
+    try:
+        # Set environment variables temporarily
+        os.environ['SOURCE_HOST'] = source_db.host
+        os.environ['SOURCE_PORT'] = str(source_db.port)
+        os.environ['SOURCE_DB'] = source_db.database
+        os.environ['SOURCE_USER'] = source_db.user
+        os.environ['SOURCE_PASSWORD'] = source_db.password
+        
+        transfer = PostgreSQLDataTransfer()
+        schemas = transfer.get_schemas()
+        
+        return {"schemas": [{"schema_name": schema} for schema in schemas]}
+        
+    except Exception as e:
+        logger.error(f"Error getting schemas: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get schemas: {str(e)}"
+        )
+
+@app.post("/database/tables")
+async def get_tables_and_views(source_db: SourceDatabaseConfig, schema_name: str = Query(..., description="Schema name")):
+    """Get all tables and views from a specific schema"""
+    try:
+        # Set environment variables temporarily
+        os.environ['SOURCE_HOST'] = source_db.host
+        os.environ['SOURCE_PORT'] = str(source_db.port)
+        os.environ['SOURCE_DB'] = source_db.database
+        os.environ['SOURCE_USER'] = source_db.user
+        os.environ['SOURCE_PASSWORD'] = source_db.password
+        
+        transfer = PostgreSQLDataTransfer()
+        tables_and_views = transfer.get_tables_and_views(schema_name)
+        
+        return {"tables": tables_and_views}
+        
+    except Exception as e:
+        logger.error(f"Error getting tables and views: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get tables and views: {str(e)}"
+        )
+
+@app.post("/database/table-info")
+async def get_table_info(source_db: SourceDatabaseConfig, schema_name: str = Query(..., description="Schema name"), table_name: str = Query(..., description="Table name")):
+    """Get detailed information about a specific table"""
+    try:
+        # Set environment variables temporarily
+        os.environ['SOURCE_HOST'] = source_db.host
+        os.environ['SOURCE_PORT'] = str(source_db.port)
+        os.environ['SOURCE_DB'] = source_db.database
+        os.environ['SOURCE_USER'] = source_db.user
+        os.environ['SOURCE_PASSWORD'] = source_db.password
+        
+        transfer = PostgreSQLDataTransfer()
+        table_info = transfer.get_table_info(schema_name, table_name)
+        
+        return table_info
+        
+    except Exception as e:
+        logger.error(f"Error getting table info: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get table info: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn
